@@ -1,4 +1,4 @@
-Jarvis: A Real-time Voice Assistant using OpenAI API
+**Jarvis: A Real-time Voice Assistant using OpenAI API
 Jarvis is an advanced voice-enabled chatbot powered by OpenAI's GPT-3.5-turbo. Utilizing state-of-the-art natural language processing, it delivers intelligent, conversational interactions with users.
 
 Features
