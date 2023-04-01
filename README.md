@@ -1,28 +1,27 @@
-GitHub Repository README:
-
-#Jarvis: A Real-time Voice Assistant using OpenAI API
+Jarvis: A Real-time Voice Assistant using OpenAI API
 Jarvis is an advanced voice-enabled chatbot powered by OpenAI's GPT-3.5-turbo. Utilizing state-of-the-art natural language processing, it delivers intelligent, conversational interactions with users.
 
-#Features
+Features
 Real-time voice recognition and response
 Customized AI behavior based on Iron Man's Jarvis
 Text-to-speech and speech-to-text capabilities using gtts, pygame, and speech_recognition libraries
 User-friendly and interactive experience
-
-
-
-#Installation
-
-1- Clone the repository: git clone https://github.com/yourusername/Jarvis.git 
-
-2-) Install the required libraries: pip install -r requirements.txt 
-
-3-) openai.api_key = "your_api_key_here" 
-
-4-) python main.py
-
-
-
+Installation
+Clone the repository:
+bash
+Copy code
+git clone https://github.com/yourusername/Jarvis.git
+Install the required libraries:
+Copy code
+pip install -r requirements.txt
+Add your OpenAI API key to the script:
+arduino
+Copy code
+openai.api_key = "your_api_key_here"
+Run the main script:
+css
+Copy code
+python main.py
 How It Works
 Jarvis leverages the OpenAI API to generate context-aware responses based on user input. The application uses the following libraries for audio processing:
 
