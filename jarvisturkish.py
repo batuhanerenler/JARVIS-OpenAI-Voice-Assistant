@@ -9,7 +9,7 @@ import io
 from tempfile import NamedTemporaryFile
 
 # Replace with your OpenAI API key
-openai.api_key = "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"
+openai.api_key = "your-API-Key"
 
 def generate_response(prompt):
     completions = openai.ChatCompletion.create(
