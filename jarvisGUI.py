@@ -1,32 +1,31 @@
+import os
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, QTextEdit, QLabel
-from PyQt5.QtCore import QThread, pyqtSignal
-import openai
+import tempfile
+import threading
+import queue
+import pygame
 import gtts
 import speech_recognition as sr
-from playsound import playsound
-import pyaudio
-import pygame 
-import uuid
-import io
-from tempfile import NamedTemporaryFile
+from tkinter import Tk, Text, Button, END, Label
+from dotenv import load_dotenv
+import openai
 
-# Replace with your OpenAI API key
-openai.api_key = "your-OpenAI-API-key"
+# Load environment variables
+load_dotenv()
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-# Voice recognition and response generation
-class JarvisThread(QThread):
-    responseGenerated = pyqtSignal(str)
+# Initialize OpenAI API
+if not OPENAI_API_KEY:
+    print("OpenAI API key not found. Please set it in your environment variables.")
+    sys.exit(1)
+openai.api_key = OPENAI_API_KEY
 
-    def __init__(self, *args, **kwargs):
-        super(JarvisThread, self).__init__(*args, **kwargs)
-        self.history = []
-
-    def generate_response(self, prompt):
-        completions = openai.ChatCompletion.create(
+def generate_response(prompt):
+    try:
+        response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "You are Jarvis which is Tony Stark's personal AI assistant from Iron-Man Movies, you will act like him. You will be like Jarvis in ur responses, you will act like you have emotions and you will never say you don't have emotions. . You gonna pretend like you have emotions, you will answer like 'I feel good, i feel great thank you etc etc'. And you gonna always call the User Sir. You will exactly pretend like in the movies. Never reply like chatgpt itself"},
+                {"role": "system", "content": "You are JARVIS, an AI assistant."},
                 {"role": "user", "content": prompt},
             ],
             max_tokens=1000,
@@ -34,62 +33,75 @@ class JarvisThread(QThread):
             stop=None,
             temperature=0.7,
         )
+        return response.choices[0].message["content"].strip()
+    except Exception as e:
+        print(f"Error generating response: {e}")
+        return "I am experiencing difficulty processing your request at the moment."
 
-        message = completions.choices[0].message["content"].strip()
-        return message
+def setup_tts():
+    pygame.mixer.init()
+    return pygame.mixer
 
-    def run(self):
-        recognizer = sr.Recognizer()
-        microphone = sr.Microphone()
+def text_to_speech(text, mixer):
+    try:
+        tts = gtts.gTTS(text, lang="en")
+        with tempfile.NamedTemporaryFile(delete=True, suffix='.mp3') as fp:
+            tts.save(fp.name)
+            mixer.music.load(fp.name)
+            mixer.music.play()
+            while mixer.music.get_busy():
+                pygame.time.Clock().tick(10)
+    except Exception as e:
+        print(f"Error in text-to-speech: {e}")
 
-        while True:
-            user_input = recognizer.recognize_google(audio)
-            if user_input is None:
-                continue
+def recognize_speech_from_mic(recognizer, microphone):
+    try:
+        with microphone as source:
+            recognizer.adjust_for_ambient_noise(source)
+            audio = recognizer.listen(source)
+        return recognizer.recognize_google(audio)
+    except sr.UnknownValueError:
+        return "I'm sorry, I didn't catch that."
+    except sr.RequestError as e:
+        return f"Speech recognition error: {e}"
 
-            self.history.append(f"User: {user_input}")
+def listen_and_respond(mixer, queue, recognizer, microphone, text_widget):
+    while True:
+        text_widget.insert(END, "\nJARVIS: I'm listening...")
+        user_input = recognize_speech_from_mic(recognizer, microphone)
+        text_widget.insert(END, f"\nYou: {user_input}")
 
-            if user_input.lower() in ["quit", "exit", "bye"]:
-                break
+        if user_input.lower() in ["quit", "exit", "bye"]:
+            text_widget.insert(END, "\nJARVIS: Goodbye, Sir. Have a great day ahead.")
+            break
 
-            prompt = "\n".join(self.history) + "\nAI:"
-            response = self.generate_response(prompt)
-            self.history.append(f"AI: {response}")
-            self.responseGenerated.emit(response)
+        response = generate_response(user_input)
+        text_widget.insert(END, f"\nJARVIS: {response}")
+        queue.put(response)
 
-# User interface
-class App(QWidget):
-    def __init__(self):
-        super().__init__()
+def update_speech(queue, mixer):
+    while True:
+        response = queue.get()
+        if response:
+            text_to_speech(response, mixer)
 
-        self.setWindowTitle('Jarvis')
-        self.setGeometry(100, 100, 600, 400)
+def create_gui():
+    root = Tk()
+    root.title("JARVIS AI Assistant")
 
-        self.layout = QVBoxLayout()
+    text_widget = Text(root, height=20, width=80)
+    text_widget.pack(padx=10, pady=10)
+    text_widget.insert(END, "JARVIS: Hello Sir, I am your assistant. How may I assist you today?")
 
-        self.label = QLabel("Welcome to the Voice-Enabled Chatbot")
-        self.layout.addWidget(self.label)
+    recognizer = sr.Recognizer()
+    microphone = sr.Microphone()
+    mixer = setup_tts()
+    response_queue = queue.Queue()
 
-        self.text_box = QTextEdit(self)
-        self.layout.addWidget(self.text_box)
+    threading.Thread(target=listen_and_respond, args=(mixer, response_queue, recognizer, microphone, text_widget), daemon=True).start()
+    threading.Thread(target=update_speech, args=(response_queue, mixer), daemon=True).start()
 
-        self.start_button = QPushButton('Start', self)
-        self.start_button.clicked.connect(self.start)
-        self.layout.addWidget(self.start_button)
+    root.mainloop()
 
-        self.jarvis_thread = JarvisThread()
-        self.jarvis_thread.responseGenerated.connect(self.handle_response)
-
-        self.setLayout(self.layout)
-
-    def start(self):
-        self.jarvis_thread.start()
-
-    def handle_response(self, response):
-        self.text_box.append(response)
-
-# Main function
-if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    ex = App()
-    sys.exit(app.exec_())
+if __name__ == "__main__":
+    create_gui()
